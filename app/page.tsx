@@ -25,7 +25,7 @@ export default function Home() {
   const [isBusyEnd, setIsBusyEnd] = useState<boolean>(false);
 
   // Đọc link API tự động từ môi trường config của Railway/Vercel
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/invite`;
 
   useEffect(() => {
     const dates: AvailableDate[] = [];
