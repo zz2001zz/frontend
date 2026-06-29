@@ -118,7 +118,7 @@ export default function Home() {
     setShowBusyPopup(false);
 
     try {
-      await fetch(`${API_URL}/api/busy`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/busy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
