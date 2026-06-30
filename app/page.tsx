@@ -24,9 +24,26 @@ export default function Home() {
   const [showBusyPopup, setShowBusyPopup] = useState<boolean>(false);
   const [isBusyEnd, setIsBusyEnd] = useState<boolean>(false);
 
-  // Đọc link API tự động từ môi trường config của Railway/Vercel
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  // 📝 Cấu hình Telegram ở đây (Sau khi deploy nên đưa vào biến môi trường .env)
+  const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+  const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
 
+  // Hàm gửi tin nhắn chung qua Telegram API
+  const sendTelegramMessage = async (text: string) => {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: text,
+        parse_mode: 'Markdown', // Hỗ trợ in đậm, xuống dòng cho đẹp
+      }),
+    });
+    return response.ok;
+  };
+
+  // 1. Tự động tạo danh sách các ngày Thứ 7 và Chủ Nhật bắt đầu từ ngày 11/07/2026
   useEffect(() => {
     const dates: AvailableDate[] = [];
     const startDate = new Date(2026, 6, 11);
@@ -50,6 +67,7 @@ export default function Home() {
     setAvailableDates(dates);
   }, []);
 
+  // 2. Ngăn chặn reload (F5) hoặc tắt trang bất ngờ
   useEffect(() => {
     if (isSubmitted || isBusyEnd) return;
 
@@ -65,6 +83,7 @@ export default function Home() {
     };
   }, [isSubmitted, isBusyEnd]);
 
+  // 3. Xử lý khi nhấn ĐỒNG Ý HẸN HÒ
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -86,47 +105,52 @@ export default function Home() {
 
     setLoading(true);
 
-    const payload = {
-      time: `${formData.time} [Khung giờ: ${formData.specificTime}]`,
-      location: formData.location,
-      message: formData.message
-    };
+    // Định dạng nội dung tin nhắn gửi về máy bạn
+    const messageText = `
+✨ *CẬU CÓ HẸN HÒ MỚI NÈ!* ✨
+-----------------------------
+📅 *Ngày hẹn:* ${formData.time}
+⏰ *Khung giờ:* ${formData.specificTime}
+📍 *Địa điểm:* ${formData.location}
+💬 *Lời nhắn:* ${formData.message || '_Không có lời nhắn_'}
+-----------------------------
+🚀 _Chuẩn bị quần áo vuốt tóc đi đón người ta thôi!_
+    `.trim();
 
     try {
-      const res = await fetch(`${API_URL}/api/invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
+      const isSuccess = await sendTelegramMessage(messageText);
+      if (isSuccess) {
         setIsSubmitted(true);
       } else {
-        setPopupMessage('Có lỗi xảy ra, thử lại giúp tớ nhé');
+        setPopupMessage('Có lỗi hệ thống xảy ra, thử lại giúp tớ nhé');
         setShowPopup(true);
       }
     } catch (error) {
       console.error(error);
-      setPopupMessage('Không thể kết nối đến Backend rồi');
+      setPopupMessage('Không thể kết nối mạng rồi, kiểm tra lại nhé');
       setShowPopup(true);
     } finally {
       setLoading(false);
     }
   };
 
+  // 4. Xử lý khi cô ấy chọn "Yep" (BÁO BẬN RỒI)
   const handleConfirmBusy = async () => {
     setShowBusyPopup(false);
 
+    const busyText = `
+🍂 *THÔNG BÁO BẬN* 🍂
+-----------------------------
+😢 *Trạng thái:* Bạn ấy đã bấm nút bận mất rồi.
+💬 *Lời nhắn kèm theo:* ${formData.message || '_Không có lời nhắn_'}
+-----------------------------
+💔 _Đừng buồn, đợi dịp khác sang rủ lại nha bạn chỉ huy!_
+    `.trim();
+
     try {
-      await fetch(`${API_URL}/api/busy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: formData.message || "Không có lời nhắn"
-        }),
-      });
+      await sendTelegramMessage(busyText);
     } catch (error) {
-      console.error("Không update được trạng thái bận:", error);
+      console.error("Lỗi gửi trạng thái bận:", error);
     }
 
     setPopupMessage("Huhu, khi nào hết bận phải bù cho tớ đó nha 😭");
@@ -157,6 +181,7 @@ export default function Home() {
             <p className="text-gray-500 text-sm mb-6">Chọn thời gian và địa điểm cậu muốn đi nhé</p>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
+              {/* MỤC 1: CHỌN NGÀY CUỐI TUẦN */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Khi nào cậu rảnh nè? </label>
                 <select
@@ -165,13 +190,14 @@ export default function Home() {
                 >
                   <option value="">Chọn một ngày cuối tuần</option>
                   {availableDates.map((date, index) => (
-                    <option key={index} value={date.value}>
+                    <option key={index} value={date.label}>
                       {date.label}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* MỤC 2: CHỌN GIỜ CỤ THỂ */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Khung giờ nào thì hợp lý nhất nhỉ?</label>
                 <select
@@ -186,6 +212,7 @@ export default function Home() {
                 </select>
               </div>
 
+              {/* MỤC 3: CHỌN ĐỊA ĐIỂM */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Cậu muốn chúng mình đi đâu đây?</label>
                 <select
@@ -193,12 +220,13 @@ export default function Home() {
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, location: e.target.value })}
                 >
                   <option value="">Chọn một nơi cậu thích</option>
-                  <option value="Cà phê nhẹ nhàng">Cà phê chuyện trò</option>
-                  <option value="Đi ăn đồ nướng/lẩu">Đi ăn món gì đó ngon ngon </option>
-                  <option value="Đi xem phim">Rạp chiếu phim</option>
+                  <option value="Cà phê chuyện trò nhẹ nhàng">Cà phê chuyện trò</option>
+                  <option value="Đi ăn món gì đó ngon ngon (Lẩu/Nướng)">Đi ăn món gì đó ngon ngon </option>
+                  <option value="Rạp chiếu phim lãng mạn">Rạp chiếu phim</option>
                 </select>
               </div>
 
+              {/* MỤC 4: LỜI NHẮN */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lời nhắn cho tớ (nếu có):</label>
                 <textarea
@@ -238,7 +266,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* POPUP 1 */}
+      {/* POPUP 1: THÔNG BÁO CHUNG */}
       {showPopup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full border border-pink-100 text-center">
@@ -253,7 +281,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* POPUP 2 */}
+      {/* POPUP 2: XÁC NHẬN BẬN */}
       {showBusyPopup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full border border-pink-100 text-center">
