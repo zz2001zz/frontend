@@ -46,23 +46,26 @@ export default function Home() {
   // 1. Tự động tạo danh sách các ngày Thứ 7 và Chủ Nhật bắt đầu từ ngày 11/07/2026
   useEffect(() => {
     const dates: AvailableDate[] = [];
-    const startDate = new Date(2026, 6, 11);
+    // Bắt đầu quét từ ngày hôm nay (Tháng 7 năm 2026)
+    const currentDate = new Date(2026, 6, 1); 
 
-    for (let i = 0; i < 14; i++) {
-      const currentDate = new Date(startDate);
-      currentDate.setDate(startDate.getDate() + i);
+    // Vòng lặp chạy qua từng ngày trong tháng 7
+    while (currentDate.getMonth() === 6) { 
       const dayOfWeek = currentDate.getDay();
 
-      if (dayOfWeek === 6 || dayOfWeek === 0) {
-        const dayLabel = dayOfWeek === 6 ? 'Thứ Bảy' : 'Chủ Nhật';
+      // Chỉ lấy Chủ Nhật (0) và bỏ qua Thứ Bảy (6)
+      if (dayOfWeek === 0) {
         const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
         const valueDate = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${currentDate.getDate().toString().padStart(2, '0')}`;
 
         dates.push({
           value: valueDate,
-          label: `${dayLabel} (Ngày ${formattedDate})`
+          label: `Chủ Nhật (Ngày ${formattedDate})`
         });
       }
+      
+      // Tăng thêm 1 ngày để tiếp tục kiểm tra
+      currentDate.setDate(currentDate.getDate() + 1);
     }
     setAvailableDates(dates);
   }, []);
